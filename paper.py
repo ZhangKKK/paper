@@ -88,24 +88,29 @@ def discriminator():
     return model
 
 
-def discriminator_loss(h_real, h_fake):
+def bce_loss(input, target):
+    neg_abs = - input.abs()
+    loss = input.clamp(min=0) - input * target + (1 + neg_abs.exp()).log()
+    return loss.mean()
    
-    
-    loss = -np.sum(np.log(h_real)) - np.sum(np.log(1 - h_fake))
-    loss /= np.prod(h_real.shape[0])
+
+def discriminator_loss(h_real, h_fake):
+    target_real = Variable(torch.ones_like(h_real.data), requires_grad = False)
+    target_fake = Variable(torch.zeros_like(h_fake.data), requires_grad = False)
+    loss = -bce_loss(h_real, target_real) / h_real.size(0) - bce_loss(h_fake, target_fake) / h_fake.size(0)
+
     return loss
 
 
 def segmenter_loss(y_predict, y_true, alpha, h_real, h_fake, alpha):
     
-    Z = - y_true * np.log(y_predict) - (1 - y_true) * np.log(1 - y_predict)
+    Z = - bce_loss(y_predict, y_predict)
     loss1 = np.sum(Z)
     loss1 /= np.prod(Z.shape) 
-    loss2 = -np.sum(np.log(h_real)) - np.sum(np.log(1 - h_fake))
-    loss2 /= np.prod(h_real.shape)
+    loss2 = - discriminator_loss(h_real, h_fake)
+
     loss = loss1 - alpha * loss2
     return loss
-
 
 def get_optimizer(model):
    
