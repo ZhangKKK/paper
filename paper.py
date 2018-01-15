@@ -37,7 +37,7 @@ class Segmenter(nn.Module):
                                              nn.Conv3d(50, 50, 3))
         self.fc_path_1 = nn.Sequential(nn.Linear(100 * 9 * 9 * 9, 150 * 9 * 9 * 9),
                                      nn.Linear(150 * 9 * 9 * 9, 150 * 9 * 9 * 9))
-        self.fc_path_2 = nn.Linear(150 * 9 * 9 * 9, 1 * 9 * 9 * 9)
+        self.fc_path_2 = nn.Linear(150 * 9 * 9 * 9, 2 * 9 * 9 * 9)
         
     def forward(self, x, y, alpha):
         
@@ -58,7 +58,7 @@ class Segmenter(nn.Module):
         x_low_3 = self.res_low_3(x_low_2)
         x_low_c3 = m(x_low_3)
         
-        concat = torch.cat(x_low_c1, x_low_c2, x_low_c3, x_normal_c1, x_normal_c2, x_normal_3)
+      
         
         x_low = m(x_low_3)  
         
@@ -68,10 +68,9 @@ class Segmenter(nn.Module):
         out_2 = self.fc_path_1(out_1)
         concat = torch.cat(x_low_c1, x_low_c2, x_low_c3, x_normal_c1, x_normal_c2, x_normal_3, out_2)
         out_3 = self.fc_path_2(out_2)
-        out = out_3.view(N, 1, 9, 9, 9)
+        out = out_3.view(N, 2, 9, 9, 9)
         
         return out, concat
-
 
 
 
@@ -97,26 +96,34 @@ def bce_loss(input, target):
 def discriminator_loss(h_real, h_fake):
     target_real = Variable(torch.ones_like(h_real.data), requires_grad = False)
     target_fake = Variable(torch.zeros_like(h_fake.data), requires_grad = False)
-    loss = -bce_loss(h_real, target_real) / h_real.size(0) - bce_loss(h_fake, target_fake) / h_fake.size(0)
+    loss = bce_loss(h_real, target_real) + bce_loss(h_fake, target_fake)
 
     return loss
 
 
 def segmenter_loss(y_predict, y_true, alpha, h_real, h_fake, alpha):
+    y_predit = y_predict.view(y_predict.size(0) * 2 * 9 * 9 *9, -1)
+    y_true = y_true.view(y_true.size(0) * 2 * 9 * 9 * 9, -1)
+    loss1 = bce_loss(y_predict, y_true)
     
-    Z = - bce_loss(y_predict, y_predict)
-    loss1 = np.sum(Z)
-    loss1 /= np.prod(Z.shape) 
-    loss2 = - discriminator_loss(h_real, h_fake)
+    
+    loss2 =  discriminator_loss(h_real, h_fake)
 
     loss = loss1 - alpha * loss2
     return loss
+
 
 def get_optimizer(model):
    
     optimizer = None
     optimizer = optim.SGD(model.parameters(), lr = 0.001)
     return optimizer
+
+
+
+
+
+
 
 
 def gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss, show_every=250, 
@@ -128,33 +135,52 @@ def gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss, show_every
         for x, y, x_s, x_t in loader_train:
             if len(x) != batch_size:
                 continue
-            x_high = 
-            x_s_high = 
-            x_t_high = 
+            
+            x = Variable(x)
+            y = Variable(Y)
+            x_s = Variable(x_s)
+            x_t = Variable(x_t)
+            
+            x_high = to_high_res(x)
+            x_s_high = to_high_res(x_s)
+            x_t_high = to_high_res(x_t)
+
+            x_high = Variable(x_high)
+            x_s_high = Variable(x_s_high)
+            x_t_high = Variable(x_t_high)
+            
             D_solver.zero_grad()
-            real_data = Variable(x).type(dtype)
+            
             
             y_predict,  _ = S(x_high, x)
             _, out_real = S(x_s_high, x_s)
             _, out_fake = S(x_t_high, x_t)
+            
+            
             h_real = D(out_real)
             h_fake = D(out_fake)
+            
             D_error = discriminator_loss(h_real, h_fake)
+            
             D_error.backward()
             D_solver.step()
             
             h_real = D(out_real)
             h_fake = D(out_fake)
+            
             S_solver.zero_grad()
+            
             if epoch < 10:
                 
                 S_error = segmenter_loss(y_predict, y_true, alpha, h_real, h_fake, 0)
                 S_error.backward()
                 S_solver.step()
+                
             else if epoch < 35:
                 S_error = segmenter_loss(y_predict, y_true, alpha, h_real, h_fake, 0.05 * (epoch - 9) / (34 - 9))
                 S_error.backward()
                 S_solver.step()
+                
             else:
                 S_error = segmenter_loss(y_predict, y_true, alpha, h_real, h_fake, 0.05)
                 S_error.backward()
@@ -164,3 +190,9 @@ def gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss, show_every
                 print('Iter: {}, D: {:.4}, G:{:.4}'.format(iter_count, D_error.data[0], G_error.data[0]))
                
             iter_count += 1
+            
+def to_high_res(x):
+    out = x[:, 3:15, 3:15, 3:15]
+    mm = nn.Upsample(scale_factor = 2, mode='nearest')
+    out = mm(out)[:, :25, :25, :25]
+    return out
