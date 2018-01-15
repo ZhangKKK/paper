@@ -43,17 +43,17 @@ class Segmenter(nn.Module):
         mm = nn.Upsample(scale_factor = 2, mode='nearest')
         N = x.size(0)
         x_normal_1 = self.res_normal_1(x)
-        x_normal_c1 = x_normal_1[40, :9, :9, :9]
+        x_normal_c1 = x_normal_1[:, :9, :9, :9]
         x_normal_2 = self.res_normal_2(x_normal_1)
-        x_normal_c2 = x_normal_2[40, :9, :9, :9]
+        x_normal_c2 = x_normal_2[:, :9, :9, :9]
         x_normal_3 = self.res_normal_3(x_normal_2)
         m = nn.Upsample(scale_factor = 3, mode='nearest')
         x_low_1 = self.res_low_1(y)
         x_low_up_1 = mm(x_low_1)
-        x_low_c1 = x_low_up_1[40, :9, :9, :9]
+        x_low_c1 = x_low_up_1[:, :9, :9, :9]
         x_low_2 = self.res_low_2(x_low_1)
         x_low_up_2 = mm(x_low_2)
-        x_low_c2 = x_low_up_2[40, :9, :9, :9]
+        x_low_c2 = x_low_up_2[:, :9, :9, :9]
         x_low_3 = self.res_low_3(x_low_2)
         x_low_c3 = m(x_low_3)
         
