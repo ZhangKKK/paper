@@ -37,7 +37,7 @@ class Segmenter(nn.Module):
                                              nn.Conv3d(50, 50, 3))
         self.fc_path_1 = nn.Sequential(nn.Linear(100 * 9 * 9 * 9, 150 * 9 * 9 * 9),
                                      nn.Linear(150 * 9 * 9 * 9, 150 * 9 * 9 * 9))
-        self.fc_path_2 = nn.Linear(150 * 9 * 9 * 9, 2 * 9 * 9 * 9)
+        self.fc_path_2 = nn.Linear(150 * 9 * 9 * 9, 1 * 9 * 9 * 9)
         
     def forward(self, x, y, alpha):
         
@@ -68,7 +68,7 @@ class Segmenter(nn.Module):
         out_2 = self.fc_path_1(out_1)
         concat = torch.cat(x_low_c1, x_low_c2, x_low_c3, x_normal_c1, x_normal_c2, x_normal_3, out_2)
         out_3 = self.fc_path_2(out_2)
-        out = out_3.view(N, 2, 9, 9, 9)
+        out = out_3.view(N, 1, 9, 9, 9)
         
         return out, concat
 
@@ -92,7 +92,7 @@ def discriminator_loss(h_real, h_fake):
    
     
     loss = -np.sum(np.log(h_real)) - np.sum(np.log(1 - h_fake))
-    loss /= np.prod(np.prod(h_real.shape))
+    loss /= np.prod(h_real.shape[0])
     return loss
 
 
