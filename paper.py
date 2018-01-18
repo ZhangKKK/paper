@@ -9,9 +9,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import sampler
 import torchvision.datasets as dset
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-
+import nrrd
 
 train_x = []
 nrrd_filename = 'PDDCA-1.4.1_part1/0522c0001/img.nrrd'
@@ -31,16 +29,13 @@ train_y = []
 nrrd_filename = 'PDDCA-1.4.1_part1/0522c0001/structures/BrainStem.nrrd'
 nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
 train_y.append(nrrd_data[251: 260, 240: 249, 67: 76].reshape(1, 9, 9, 9))
-
 nrrd_filename = 'PDDCA-1.4.1_part1/0522c0002/structures/BrainStem.nrrd'
 nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
 train_y.append(nrrd_data[245: 254, 218: 227, 86: 95].reshape(1, 9, 9, 9))
-
 nrrd_filename = 'PDDCA-1.4.1_part1/0522c0003/structures/BrainStem.nrrd'
 nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
 print nrrd_data.shape
 train_y.append(nrrd_data[245: 254, 255: 264, 93: 102].reshape(1, 9, 9, 9))
-
 nrrd_filename = 'PDDCA-1.4.1_part1/0522c0009/structures/BrainStem.nrrd'
 nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
 print nrrd_data.shape
@@ -106,7 +101,7 @@ class Segmenter(nn.Module):
         self.res_2 = nn.Conv3d(150, 1, 1)
         
     def forward(self, x, y):
-        mm = nn.Upsample(scale_factor = 2, mode='nearest')
+        mm = nn.Upsample(scale_factor = 2, mode = 'nearest')
         N = x.size(0)
         
         x_normal_1 = self.res_normal_1(x)
@@ -116,7 +111,7 @@ class Segmenter(nn.Module):
         x_normal_c2 = x_normal_2[:, :, 2: 11, 2: 11, 2: 11]
         
         x_normal_3 = self.res_normal_3(x_normal_2)
-        m = nn.Upsample(scale_factor = 3, mode='nearest')
+        m = nn.Upsample(scale_factor = 3, mode = 'nearest')
         x_low_1 = self.res_low_1(y)
         x_low_up_1 = mm(x_low_1)
         x_low_c1 = x_low_up_1[:, :, 7: 16 , 7: 16, 7: 16]
@@ -150,7 +145,7 @@ def discriminator():
 
 def bce_loss(input, target):
     neg_abs = - input.abs()
-    loss = input.clamp(min=0) - input * target + (1 + neg_abs.exp()).log()
+    loss = input.clamp(min = 0) - input * target + (1 + neg_abs.exp()).log()
     return loss.mean()
    
 
@@ -172,23 +167,18 @@ def segmenter_loss(y_predict, y_true, h_real, h_fake, alpha):
     return loss
 
 def get_optimizer(model):
-   
     optimizer = None
     optimizer = optim.SGD(model.parameters(), lr = 0.001)
     return optimizer
 
 
-def gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss, show_every = 250, 
-              batch_size=1, num_epochs=5):
-
+def gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss, show_every = 250, batch_size=1, num_epochs=5):
     iter_count = 0
-
     for epoch in range(num_epochs):
         
         #for x, y, x_s, x_t in zip(train_x, train_y, train_s, train_t):
             #if len(x) != batch_size:
              #   continue
-            
             x = torch.from_numpy(train_x)
             y = torch.from_numpy(train_y)
             x_s = torch.from_numpy(train_s)
