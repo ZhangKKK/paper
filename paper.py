@@ -9,78 +9,101 @@ from torch.utils.data import DataLoader
 from torch.utils.data import sampler
 import torchvision.datasets as dset
 import numpy as np
-import nrrd
+import SimpleITK as sitk
+import os
+
+origin = 'Data/BRAST/Pre-operative_TCGA_GBM_NIfTI_and_Segmentations/preprocessed/'
+path = os.listdir(origin)
 
 train_x = []
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0001/img.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_x.append(nrrd_data[246: 265, 235: 254, 62: 81].reshape(1, 19, 19, 19))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0002/img.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_x.append(nrrd_data[240: 259, 213: 232, 81: 100].reshape(1, 19, 19, 19))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0003/img.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_x.append(nrrd_data[240: 259, 250: 269, 88: 107].reshape(1, 19, 19, 19))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0009/img.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_x.append(nrrd_data[240: 259, 240: 259, 95: 114].reshape(1, 19, 19, 19))
-
 train_y = []
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0001/structures/BrainStem.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_y.append(nrrd_data[251: 260, 240: 249, 67: 76].reshape(1, 9, 9, 9))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0002/structures/BrainStem.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_y.append(nrrd_data[245: 254, 218: 227, 86: 95].reshape(1, 9, 9, 9))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0003/structures/BrainStem.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-print nrrd_data.shape
-train_y.append(nrrd_data[245: 254, 255: 264, 93: 102].reshape(1, 9, 9, 9))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0009/structures/BrainStem.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-print nrrd_data.shape
-train_y.append(nrrd_data[245: 254, 245: 254, 100: 109].reshape(1, 9, 9, 9))
-
-
 train_s = []
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0013/img.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_s.append(nrrd_data[232: 251, 245: 264, 91: 110].reshape(1, 19, 19, 19))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0014/img.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_s.append(nrrd_data[242: 261, 271: 290, 93: 112].reshape(1, 19, 19, 19))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0017/img.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_s.append(nrrd_data[240: 259, 204: 223, 100: 119].reshape(1, 19, 19, 19))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0057/img.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_s.append(nrrd_data[240: 259, 210: 229, 105: 124].reshape(1, 19, 19, 19))
-
-
 train_t = []
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0070/img.nrrd'  #Mandible
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_t.append(nrrd_data[210: 229, 200: 219, 65: 84].reshape(1, 19, 19, 19))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0077/img.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_t.append(nrrd_data[240: 259, 240: 259, 80: 99].reshape(1, 19, 19, 19))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0079/img.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_t.append(nrrd_data[210: 229, 230: 249, 65: 84].reshape(1, 19, 19, 19))
-nrrd_filename = 'PDDCA-1.4.1_part1/0522c0081/img.nrrd'
-nrrd_data, nrrd_options = nrrd.read(nrrd_filename)
-train_t.append(nrrd_data[190: 209, 200: 219, 90: 109].reshape(1, 19, 19, 19))
+test_s = []
+test_t = []
+test_s_y = []
+test_t_y = []
+
+def make_data(flag = 0):
+    real_data = []
+    fake_data = []
+    if flag == 0:
+        a = 0
+        b = 30
+    elif flag == 1:
+        a = 30
+        b = 40
+    elif flag == 2:
+        a = 40
+        b = 50
+    elif flag == 3:
+        a = 0
+        b = 70
+    else:
+        print "wrong number"
+        return 1
+    
+    for i in path[a: b]:
+        real_data = []
+        fake_data = []
+        if i.startswith('.'):
+            continue
+        sub = origin + "/" + i
+        subsub = os.listdir(sub)
+        if len(subsub) != 5:
+            continue
+            
+        flair = sitk.ReadImage(sub + "/" + subsub[0])
+        flair = sitk.GetArrayFromImage(flair)
+        t1 = sitk.ReadImage(sub + "/" + subsub[1])
+        t1 = sitk.GetArrayFromImage(t1)
+        t2 = sitk.ReadImage(sub + "/" + subsub[3])
+        t2 = sitk.GetArrayFromImage(t2)  
+        y = sitk.ReadImage(sub + "/" + subsub[4])
+        y = sitk.GetArrayFromImage(y)
+        
+        flair = flair[67 : 86, 110 : 129, 110 : 129]
+        t1 = t1[67 : 86, 110 : 129, 110 : 129]
+        t2 = t2[67 : 86, 110 : 129, 110 : 129]
+        y = y[72 : 81, 115 : 124, 115 : 124]
+        
+        real_data.append(t2)
+        real_data.append(t1)
+        fake_data.append(t2)
+        fake_data.append(flair)
+        
+        if flag == 0:
+            train_x.append(real_data)
+            train_y.append(y)
+        elif flag == 1:
+            train_s.append(real_data)
+        elif flag == 2:
+            train_t.append(fake_data)
+        else: 
+            test_s.append(real_data)
+            test_s_y.append(y)
+            test_t.append(fake_data)
+            test_t_y.append(y)
+            
+make_data(0)
+make_data(1)
+make_data(2)
+make_data(3)
+
 
 train_x = np.array(train_x)
 train_y = np.array(train_y)
 train_s = np.array(train_s)
 train_t = np.array(train_t)
-
+test_s = np.array(test_s)
+test_t = np.array(test_t)
+test_s_y = np.array(test_s_y)
+test_t_y = np.array(test_t_y)
 
 class Segmenter(nn.Module):
     def __init__(self):
         super(Segmenter, self).__init__()
-        self.res_normal_1 = nn.Sequential(nn.Conv3d(1, 30, 3), 
+        self.res_normal_1 = nn.Sequential(nn.Conv3d(2, 30, 3), 
                                              nn.Conv3d(30, 30, 3), 
                                              nn.Conv3d(30, 40, 3),
                                              nn.Conv3d(40, 40, 3))
@@ -88,7 +111,7 @@ class Segmenter(nn.Module):
                                              nn.Conv3d(40, 40, 3))
         self.res_normal_3 = nn.Sequential(nn.Conv3d(40, 50, 3),
                                              nn.Conv3d(50, 50, 3))
-        self.res_low_1 = nn.Sequential(nn.Conv3d(1, 30, 3), 
+        self.res_low_1 = nn.Sequential(nn.Conv3d(2, 30, 3), 
                                              nn.Conv3d(30, 30, 3), 
                                              nn.Conv3d(30, 40, 3),
                                              nn.Conv3d(40, 40, 3))
@@ -101,7 +124,7 @@ class Segmenter(nn.Module):
         self.res_2 = nn.Conv3d(150, 1, 1)
         
     def forward(self, x, y):
-        mm = nn.Upsample(scale_factor = 2, mode = 'nearest')
+        mm = nn.Upsample(scale_factor = 2, mode='nearest')
         N = x.size(0)
         
         x_normal_1 = self.res_normal_1(x)
@@ -111,7 +134,7 @@ class Segmenter(nn.Module):
         x_normal_c2 = x_normal_2[:, :, 2: 11, 2: 11, 2: 11]
         
         x_normal_3 = self.res_normal_3(x_normal_2)
-        m = nn.Upsample(scale_factor = 3, mode = 'nearest')
+        m = nn.Upsample(scale_factor = 3, mode='nearest')
         x_low_1 = self.res_low_1(y)
         x_low_up_1 = mm(x_low_1)
         x_low_c1 = x_low_up_1[:, :, 7: 16 , 7: 16, 7: 16]
@@ -125,58 +148,60 @@ class Segmenter(nn.Module):
         out1 = self.res_1(conc)
         concat = torch.cat((x_low_c1, x_low_c2, x_low_c3, x_normal_c1, x_normal_c2, x_normal_3, out1), dim = 1)
         out = self.res_2(out1)
-        return out, concat        
-
+        return out, concat 
 
 def discriminator():
-    
     model = nn.Sequential(
         nn.Conv3d(410, 100, 3),
         nn.Conv3d(100, 100, 3),
         nn.Conv3d(100, 100, 3),
         nn.Conv3d(100, 100, 3),
         nn.Conv3d(100, 1, 1)
-        
-    )
+     )
     return model
-
-
-
 
 def bce_loss(input, target):
     neg_abs = - input.abs()
     loss = input.clamp(min = 0) - input * target + (1 + neg_abs.exp()).log()
     return loss.mean()
-   
 
 def discriminator_loss(h_real, h_fake):
+    h_real = h_real.view(h_real.size(0), -1)
+    h_fake = h_fake.view(h_fake.size(0), -1)
     target_real = Variable(torch.ones_like(h_real.data), requires_grad = False)
     target_fake = Variable(torch.zeros_like(h_fake.data), requires_grad = False)
     loss = bce_loss(h_real, target_real) + bce_loss(h_fake, target_fake)
-
     return loss
 
-
 def segmenter_loss(y_predict, y_true, h_real, h_fake, alpha):
-    y_predict = y_predict.view(y_predict.size(0) * 1 * 9 * 9 *9, -1)
-    y_true = y_true.contiguous().view(y_true.size(0) * 1 * 9 * 9 * 9, -1)
+    y_predict = y_predict.view(y_predict.size(0) * 9 * 9 *9, -1)
+    y_true = y_true.contiguous().view(y_true.size(0) * 9 * 9 * 9, -1)
     y_true = y_true.float()
     loss1 = bce_loss(y_predict, y_true)
-    loss2 =  discriminator_loss(h_real, h_fake)
+    loss2 = 0
+    if alpha != 0:
+        loss2 =  discriminator_loss(h_real, h_fake)
     loss = loss1 - alpha * loss2
+    return loss
+
+def just_segmenter_loss(y_predict, y_true):
+    y_predict = y_predict.view(y_predict.size(0) * 9 * 9 *9, -1)
+    y_true = y_true.contiguous().view(y_true.size(0) * 9 * 9 * 9, -1)
+    y_true = y_true.float()
+    loss = bce_loss(y_predict, y_true)
     return loss
 
 def get_optimizer(model):
     optimizer = None
-    optimizer = optim.SGD(model.parameters(), lr = 0.001)
+    optimizer = optim.SGD(model.parameters(), lr = 0.0001)
     return optimizer
 
+def gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss, show_every = 250, 
+              batch_size=1, num_epochs = 100):
 
-def gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss, show_every = 250, batch_size=1, num_epochs=5):
     iter_count = 0
     for epoch in range(num_epochs):
-        
-        #for x, y, x_s, x_t in zip(train_x, train_y, train_s, train_t):
+         #for x, y, x_s, x_t in zip(train_x, train_y, train_s, train_t):
             #if len(x) != batch_size:
              #   continue
             x = torch.from_numpy(train_x)
@@ -203,16 +228,12 @@ def gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss, show_every
             S_solver.zero_grad()
             if epoch < 10:
                 S_error = segmenter_loss(y_predict, y_true, h_real, h_fake, 0)
-                S_error.backward(retain_graph=True)
-                S_solver.step()
             elif epoch < 35:
-                S_error = segmenter_loss(y_predict, y_true, h_real, h_fake, 0)#0.05 * (epoch - 9) / (34 - 9))
-                S_error.backward(retain_graph=True)
-                S_solver.step()
+                S_error = segmenter_loss(y_predict, y_true, h_real, h_fake, 0.05 * (epoch - 9) / (34 - 9))
             else:
-                S_error = segmenter_loss(y_predict, y_true, h_real, h_fake, 0)#.05)
-                S_error.backward(retain_graph=True)
-                S_solver.step()
+                S_error = segmenter_loss(y_predict, y_true, h_real, h_fake, 0.05)
+            S_error.backward(retain_graph = True)
+            S_solver.step()
                 
             D_solver.zero_grad()
             D_error = discriminator_loss(h_real, h_fake)
@@ -220,8 +241,7 @@ def gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss, show_every
             D_solver.step()
 
           #  if (iter_count % show_every == 0):
-            print('Iter: {}, D: {:.4}, S:{:.4}'.format(iter_count, D_error.data[0], S_error.data[0]))
-               
+            print('Iter: {}, D: {:.4}, S:{:.4}'.format(iter_count, D_error.data[0], S_error.data[0]))  
             iter_count += 1
             
 def to_high_res(x):
@@ -230,14 +250,56 @@ def to_high_res(x):
     out = mm(out)[:, :, : 25, : 25, : 25]
     return out
 
+test_s = torch.from_numpy(test_s)
+test_t = torch.from_numpy(test_t)
+test_s_y = torch.from_numpy(test_s_y)
+test_t_y = torch.from_numpy(test_t_y)
+test_s = Variable(test_s)
+test_t = Variable(test_t)
+test_s_y = Variable(test_s_y)
+test_t_y = Variable(test_t_y)
+test_s_high = to_high_res(test_s)
+test_t_high = to_high_res(test_t)
 
-D = discriminator()
-S = Segmenter()
+def just_segmenter(S, S_solver, segmenter_loss, show_every = 250, 
+              batch_size=1, num_epochs = 100):
 
-D_solver = get_optimizer(D)
-S_solver = get_optimizer(S)
+    iter_count = 0
+    for epoch in range(num_epochs):
+        #for x, y, x_s, x_t in zip(train_x, train_y, train_s, train_t):
+            #if len(x) != batch_size:
+             #   continue
+            x = torch.from_numpy(train_x)
+            y = torch.from_numpy(train_y)
+            x = Variable(x)
+            y_true = Variable(y)
+            x_high = to_high_res(x)
+            y_predict,  _ = S(x_high, x)
+            S_solver.zero_grad()
+            S_error = just_segmenter_loss(y_predict, y_true)
+            S_error.backward(retain_graph = True)
+            S_solver.step()
+          #  if (iter_count % show_every == 0):
+            print('Iter: {}, S:{:.4}'.format(iter_count, S_error.data[0]))
+            iter_count += 1
 
-gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss)
+D_1 = discriminator()
+S_1 = Segmenter()
+D_solver_1 = get_optimizer(D_1)
+S_solver_1 = get_optimizer(S_1)
+gan(D_1, S_1, D_solver_1, S_solver_1, discriminator_loss, segmenter_loss)
 
+test_s_predict, _ = S_1(test_s_high, test_s)
+test_t_predict, _ = S_1(test_t_high, test_t)
+print just_segmenter_loss(test_s_predict, test_s_y)
+print just_segmenter_loss(test_t_predict, test_t_y)
 
+S_2 = Segmenter()
+S_solver_2 = get_optimizer(S_2)
+just_segmenter(S_2, S_solver_2, segmenter_loss)
 
+test_s_predict, _ = S_2(test_s_high, test_s)
+test_t_predict, _ = S_2(test_t_high, test_t)
+print just_segmenter_loss(test_s_predict, test_s_y)
+print just_segmenter_loss(test_t_predict, test_t_y)
+       
