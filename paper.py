@@ -10,21 +10,16 @@ import numpy as np
 import SimpleITK as sitk
 import os
 
+
 origin = 'Data/BRAST/Pre-operative_TCGA_GBM_NIfTI_and_Segmentations/preprocessed/'
 path = os.listdir(origin)
 
-train_x = []
-train_y = []
-train_s = []
-train_t = []
-test_s = []
-test_t = []
-test_s_y = []
-test_t_y = []
+train_x, train_y, train_s, train_t, test_s, test_t, test_s_y, test_t_y = \
+                                    [], [], [], [], [], [], [], []
+
+
 
 def make_data(flag = 0):
-    real_data = []
-    fake_data = []
     if flag == 0:
         a = 0
         b = 60
@@ -39,33 +34,31 @@ def make_data(flag = 0):
         return 1
     
     for i in path[a: b]:
-        real_data = []
-        fake_data = []
+        real_data, fake_data = [], []
         if i.startswith('.'):
             continue
         sub = origin + "/" + i
         subsub = os.listdir(sub)
         if len(subsub) != 5:
             continue
+        curr = [0] * 5
+        for i in range(5):
+            curr[i] = sitk.ReadImage(sub + "/" + subsub[i])
+            curr[i] = sitk.GetArrayFromImage(curr[i])
             
-        flair = sitk.ReadImage(sub + "/" + subsub[0])
-        flair = sitk.GetArrayFromImage(flair)
-        t1 = sitk.ReadImage(sub + "/" + subsub[1])
-        t1 = sitk.GetArrayFromImage(t1)
-        t2 = sitk.ReadImage(sub + "/" + subsub[3])
-        t2 = sitk.GetArrayFromImage(t2)  
-        y = sitk.ReadImage(sub + "/" + subsub[4])
-        y = sitk.GetArrayFromImage(y)
-        
-        flair = flair[67 : 86, 110 : 129, 110 : 129]
-        t1 = t1[67 : 86, 110 : 129, 110 : 129]
-        t2 = t2[67 : 86, 110 : 129, 110 : 129]
-        y = y[72 : 81, 115 : 124, 115 : 124]
+            if i < 4:
+                curr[i] = curr[i][67 : 86, 110 : 129, 110 : 129]
+                
+            else:
+                curr[i] = curr[i][72 : 81, 115 : 124, 115 : 124]
+        flair, t1, t1gd, t2, y = curr
         y[y != 0] = 1
+        real_data.append(flair)
         real_data.append(t2)
         real_data.append(t1)
-        fake_data.append(t2)
         fake_data.append(flair)
+        fake_data.append(t2)
+        fake_data.append(t1gd)
         
         if flag == 0:
             train_x.append(real_data)
@@ -82,6 +75,7 @@ def make_data(flag = 0):
 make_data(0)
 make_data(1)
 make_data(2)
+
 dtype = torch.cuda.FloatTensor
 
 def to_high_res(x):
@@ -124,7 +118,7 @@ test_t_high = to_high_res(test_t)
 class Segmenter(nn.Module):
     def __init__(self):
         super(Segmenter, self).__init__()
-        self.res_normal_1 = nn.Sequential(nn.Conv3d(2, 30, 3), 
+        self.res_normal_1 = nn.Sequential(nn.Conv3d(3, 30, 3), 
                                              nn.Conv3d(30, 30, 3), 
                                              nn.Conv3d(30, 40, 3),
                                              nn.Conv3d(40, 40, 3)).type(dtype)
@@ -132,7 +126,7 @@ class Segmenter(nn.Module):
                                              nn.Conv3d(40, 40, 3)).type(dtype)
         self.res_normal_3 = nn.Sequential(nn.Conv3d(40, 50, 3),
                                              nn.Conv3d(50, 50, 3)).type(dtype)
-        self.res_low_1 = nn.Sequential(nn.Conv3d(2, 30, 3), 
+        self.res_low_1 = nn.Sequential(nn.Conv3d(3, 30, 3), 
                                              nn.Conv3d(30, 30, 3), 
                                              nn.Conv3d(30, 40, 3),
                                              nn.Conv3d(40, 40, 3)).type(dtype)
@@ -238,13 +232,17 @@ class TensorDataset(Dataset):
     
 tensor_dataset = TensorDataset(x, y)
 tensor_dataloader = DataLoader(tensor_dataset, batch_size = 5, shuffle = True, num_workers = 0)
+
 tensor_dataset_ = TensorDataset(x_st, y_st)
 tensor_dataloader_ = DataLoader(tensor_dataset_, batch_size = 5, shuffle = True, num_workers = 0)
+
+
 
 def gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss, 
               batch_size = 1, num_epochs = 200):
 
     iter_count = 0
+  #  torch.manual_seed(1)
     show_every = 250
 
     for epoch in range(200):
@@ -281,7 +279,6 @@ def gan(D, S, D_solver, S_solver, discriminator_loss, segmenter_loss,
                 if (iter_count % show_every == 0):
                     print('Iter: {}, D: {:.4}, S:{:.4}'.format(iter_count, D_error.data[0], S_error.data[0]))  
                 iter_count += 1
-
 
 def just_segmenter(S, S_solver, segmenter_loss, show_every = 250, 
               batch_size=1, num_epochs = 200):
@@ -323,6 +320,23 @@ test_s_predict, _ = S_2(test_s_high, test_s)
 test_t_predict, _ = S_2(test_t_high, test_t)
 print just_segmenter_loss(test_s_predict, test_s_y)
 print just_segmenter_loss(test_t_predict, test_t_y)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
